@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/backgroundLight">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="25dp"
+        android:gravity="center_horizontal">
+
+        <!-- TÍTULO -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:fontFamily="sans-serif-condensed-medium"
+            android:text="Resultado del Análisis"
+            android:textColor="@color/primaryPurple"
+            android:textSize="34sp"
+            android:textStyle="bold" />
+
+        <!-- IMAGEN ANALIZADA -->
+        <ImageView
+            android:id="@+id/imageResultado"
+            android:layout_width="match_parent"
+            android:layout_height="350dp"
+            android:scaleType="fitCenter"
+            android:background="#EAEAEA"
+            android:layout_marginBottom="20dp"/>
+
+        <!-- CONTEO -->
+        <TextView
+            android:id="@+id/tvConteo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="30dp"
+            android:fontFamily="sans-serif-condensed-medium"
+            android:text="Objetos detectados: 0"
+            android:textColor="@color/darkPurple"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <!-- BOTÓN TOMAR OTRA FOTO -->
+        <Button
+            android:id="@+id/btnOtraFoto"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:layout_marginBottom="15dp"
+            android:background="@drawable/rounded_button"
+            android:fontFamily="sans-serif-condensed-medium"
+            android:text="Tomar otra foto"
+            android:textColor="@color/white"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            app:icon="@android:drawable/ic_menu_camera" />
+
+        <!-- BOTÓN VOLVER -->
+        <Button
+            android:id="@+id/btnVolver"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:background="@drawable/rounded_button"
+            android:fontFamily="sans-serif-condensed-medium"
+            android:text="Volver al inicio"
+            android:textColor="@color/white"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            app:icon="@android:drawable/ic_menu_revert" />
+
+    </LinearLayout>
+
+</ScrollView>
