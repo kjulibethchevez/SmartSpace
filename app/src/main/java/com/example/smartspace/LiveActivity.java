@@ -1,62 +1,68 @@
 package com.example.smartspace;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
+import android.annotation.SuppressLint;
+import android.graphics.Rect;
 import android.os.Bundle;
 import android.util.Size;
-import android.widget.TextView;
+import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageProxy;
-import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.mlkit.common.model.LocalModel;
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.objects.DetectedObject;
 import com.google.mlkit.vision.objects.ObjectDetection;
 import com.google.mlkit.vision.objects.ObjectDetector;
-import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions;
+import com.google.mlkit.vision.objects.custom.CustomObjectDetectorOptions;
 
-import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 public class LiveActivity extends AppCompatActivity {
 
-    private static final int REQUEST_CAMERA_PERMISSION = 200;
-
     private PreviewView previewView;
-    private GraphicOverlay graphicOverlay;
-    private TextView tvLiveConteo;
+    private ObjectDetector objectDetector;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_live);
 
         previewView = findViewById(R.id.previewView);
-        graphicOverlay = findViewById(R.id.graphicOverlay);
-        tvLiveConteo = findViewById(R.id.tvLiveConteo);
 
-        if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
+        iniciarDetector();
 
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.CAMERA},
-                    REQUEST_CAMERA_PERMISSION);
-        } else {
-            startCamera();
-        }
+        iniciarCamara();
     }
 
-    private void startCamera() {
+    private void iniciarDetector(){
+
+        LocalModel localModel =
+                new LocalModel.Builder()
+                        .setAssetFilePath("detect.tflite")
+                        .build();
+
+        CustomObjectDetectorOptions options =
+                new CustomObjectDetectorOptions.Builder(localModel)
+                        .setDetectorMode(
+                                CustomObjectDetectorOptions.STREAM_MODE)
+                        .enableClassification()
+                        .setClassificationConfidenceThreshold(0.5f)
+                        .setMaxPerObjectLabelCount(1)
+                        .build();
+
+        objectDetector =
+                ObjectDetection.getClient(options);
+    }
+
+    private void iniciarCamara(){
 
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
                 ProcessCameraProvider.getInstance(this);
@@ -68,96 +74,78 @@ public class LiveActivity extends AppCompatActivity {
                 ProcessCameraProvider cameraProvider =
                         cameraProviderFuture.get();
 
-                Preview preview = new Preview.Builder().build();
-                preview.setSurfaceProvider(
-                        previewView.getSurfaceProvider());
+                CameraSelector cameraSelector =
+                        CameraSelector.DEFAULT_BACK_CAMERA;
 
                 ImageAnalysis imageAnalysis =
                         new ImageAnalysis.Builder()
-                                .setTargetResolution(new Size(1280, 720))
+                                .setTargetResolution(new Size(1280,720))
                                 .setBackpressureStrategy(
                                         ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                                 .build();
 
-                ObjectDetectorOptions options =
-                        new ObjectDetectorOptions.Builder()
-                                .setDetectorMode(
-                                        ObjectDetectorOptions.SINGLE_IMAGE_MODE)
-                                .enableMultipleObjects()
-                                .build();
-
-                ObjectDetector objectDetector =
-                        ObjectDetection.getClient(options);
-
                 imageAnalysis.setAnalyzer(
                         ContextCompat.getMainExecutor(this),
-                        imageProxy ->
-                                processImageProxy(
-                                        objectDetector,
-                                        imageProxy));
-
-                CameraSelector cameraSelector =
-                        CameraSelector.DEFAULT_BACK_CAMERA;
+                        this::analizarImagen);
 
                 cameraProvider.unbindAll();
+
                 cameraProvider.bindToLifecycle(
                         this,
                         cameraSelector,
-                        preview,
                         imageAnalysis);
 
             } catch (ExecutionException | InterruptedException e) {
-                e.printStackTrace();
+
+                Toast.makeText(
+                        this,
+                        "Error al iniciar cámara",
+                        Toast.LENGTH_SHORT).show();
             }
 
         }, ContextCompat.getMainExecutor(this));
     }
 
-    private void processImageProxy(
-            ObjectDetector detector,
-            ImageProxy imageProxy) {
+    @SuppressLint("UnsafeOptInUsageError")
+    private void analizarImagen(ImageProxy imageProxy){
 
-        if (imageProxy.getImage() != null) {
-
-            InputImage image =
-                    InputImage.fromMediaImage(
-                            imageProxy.getImage(),
-                            imageProxy.getImageInfo()
-                                    .getRotationDegrees());
-
-            detector.process(image)
-                    .addOnSuccessListener(
-                            detectedObjects -> {
-
-                                graphicOverlay.setObjects(
-                                        detectedObjects);
-
-                                tvLiveConteo.setText(
-                                        "Objetos en vivo: "
-                                                + detectedObjects.size());
-                            })
-                    .addOnCompleteListener(
-                            task -> imageProxy.close());
+        if(imageProxy.getImage() == null){
+            imageProxy.close();
+            return;
         }
-    }
 
-    @Override
-    public void onRequestPermissionsResult(
-            int requestCode,
-            @NonNull String[] permissions,
-            @NonNull int[] grantResults) {
+        InputImage image =
+                InputImage.fromMediaImage(
+                        imageProxy.getImage(),
+                        imageProxy.getImageInfo()
+                                .getRotationDegrees());
 
-        super.onRequestPermissionsResult(
-                requestCode,
-                permissions,
-                grantResults);
+        objectDetector.process(image)
+                .addOnSuccessListener(objects -> {
 
-        if (requestCode == REQUEST_CAMERA_PERMISSION
-                && grantResults.length > 0
-                && grantResults[0]
-                == PackageManager.PERMISSION_GRANTED) {
+                    for(DetectedObject object : objects){
 
-            startCamera();
-        }
+                        Rect bounds =
+                                object.getBoundingBox();
+
+                        if(!object.getLabels().isEmpty()){
+
+                            String label =
+                                    object.getLabels()
+                                            .get(0)
+                                            .getText();
+
+                            float confidence =
+                                    object.getLabels()
+                                            .get(0)
+                                            .getConfidence();
+
+                        }
+                    }
+
+                    imageProxy.close();
+                })
+
+                .addOnFailureListener(e -> imageProxy.close());
     }
 }

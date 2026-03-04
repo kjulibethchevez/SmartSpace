@@ -17,10 +17,9 @@ import androidx.core.content.ContextCompat;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final int REQUEST_IMAGE_CAPTURE = 1;
-    private static final int REQUEST_IMAGE_GALLERY = 2;
-    private static final int REQUEST_RESULTADO = 3;
-    private static final int REQUEST_CAMERA_PERMISSION = 100;
+    private static final int REQUEST_CAMERA = 1;
+    private static final int REQUEST_GALLERY = 2;
+    private static final int REQUEST_PERMISSION = 100;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,9 +28,7 @@ public class MainActivity extends AppCompatActivity {
 
         Button btnCamara = findViewById(R.id.btnCamara);
         Button btnGaleria = findViewById(R.id.btnGaleria);
-        Button btnLive = findViewById(R.id.btnLive);
 
-        //Tomar Foto
         btnCamara.setOnClickListener(v -> {
 
             if (ContextCompat.checkSelfPermission(this,
@@ -40,32 +37,26 @@ public class MainActivity extends AppCompatActivity {
 
                 ActivityCompat.requestPermissions(this,
                         new String[]{Manifest.permission.CAMERA},
-                        REQUEST_CAMERA_PERMISSION);
+                        REQUEST_PERMISSION);
             } else {
                 abrirCamara();
             }
+
         });
 
-        //Seleccionar Imagen
         btnGaleria.setOnClickListener(v -> {
 
             Intent intent = new Intent(Intent.ACTION_PICK,
                     MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
 
-            startActivityForResult(intent, REQUEST_IMAGE_GALLERY);
+            startActivityForResult(intent, REQUEST_GALLERY);
         });
-
-        //Live
-        btnLive.setOnClickListener(v ->
-                startActivity(new Intent(this, LiveActivity.class)));
     }
 
     private void abrirCamara() {
-        Intent takePictureIntent =
-                new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
 
-        startActivityForResult(takePictureIntent,
-                REQUEST_IMAGE_CAPTURE);
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        startActivityForResult(intent, REQUEST_CAMERA);
     }
 
     @Override
@@ -73,53 +64,36 @@ public class MainActivity extends AppCompatActivity {
                                     int resultCode,
                                     @Nullable Intent data) {
 
-        super.onActivityResult(requestCode,
-                resultCode, data);
+        super.onActivityResult(requestCode, resultCode, data);
 
         if (resultCode == RESULT_OK) {
 
-            //Foto tomada
-            if (requestCode == REQUEST_IMAGE_CAPTURE
-                    && data != null) {
+            if (requestCode == REQUEST_CAMERA && data != null) {
 
-                Bitmap imageBitmap =
+                Bitmap bitmap =
                         (Bitmap) data.getExtras().get("data");
 
-                if (imageBitmap != null) {
+                Intent intent =
+                        new Intent(this,
+                                ResultadoActivity.class);
 
-                    Intent intent =
-                            new Intent(this,
-                                    ResultadoActivity.class);
+                intent.putExtra("bitmap", bitmap);
 
-                    intent.putExtra("bitmap", imageBitmap);
-
-                    startActivityForResult(intent,
-                            REQUEST_RESULTADO);
-                }
+                startActivity(intent);
             }
 
-            //Imagen de galería
-            if (requestCode == REQUEST_IMAGE_GALLERY
-                    && data != null) {
+            if (requestCode == REQUEST_GALLERY && data != null) {
 
                 Uri imageUri = data.getData();
 
-                if (imageUri != null) {
+                Intent intent =
+                        new Intent(this,
+                                ResultadoGaleriaActivity.class);
 
-                    Intent intent =
-                            new Intent(this,
-                                    ResultadoGaleriaActivity.class);
+                intent.putExtra("imageUri",
+                        imageUri.toString());
 
-                    intent.putExtra("imageUri",
-                            imageUri.toString());
-
-                    startActivity(intent);
-                }
-            }
-
-            // Volver desde ResultadoActivity
-            if (requestCode == REQUEST_RESULTADO) {
-                abrirCamara();
+                startActivity(intent);
             }
         }
     }
@@ -130,9 +104,10 @@ public class MainActivity extends AppCompatActivity {
                                            @NonNull int[] grantResults) {
 
         super.onRequestPermissionsResult(requestCode,
-                permissions, grantResults);
+                permissions,
+                grantResults);
 
-        if (requestCode == REQUEST_CAMERA_PERMISSION
+        if (requestCode == REQUEST_PERMISSION
                 && grantResults.length > 0
                 && grantResults[0]
                 == PackageManager.PERMISSION_GRANTED) {

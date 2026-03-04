@@ -5,22 +5,19 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
-import android.net.Uri;
 import android.os.Bundle;
-import android.provider.MediaStore;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.mlkit.common.model.LocalModel;
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.objects.DetectedObject;
 import com.google.mlkit.vision.objects.ObjectDetection;
 import com.google.mlkit.vision.objects.ObjectDetector;
-import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions;
-
-import java.io.IOException;
+import com.google.mlkit.vision.objects.custom.CustomObjectDetectorOptions;
 
 public class ResultadoActivity extends AppCompatActivity {
 
@@ -45,49 +42,31 @@ public class ResultadoActivity extends AppCompatActivity {
 
         btnVolver.setOnClickListener(v -> finish());
 
-        recibirImagen();
-    }
+        // Recibir imagen desde MainActivity
+        Bitmap bitmap = getIntent().getParcelableExtra("bitmap");
 
-    private void recibirImagen() {
-
-        try {
-
-            Bitmap bitmap =
-                    getIntent().getParcelableExtra("bitmap");
-
-            if (bitmap != null) {
-                detectarObjetos(bitmap);
-                return;
-            }
-
-            String uriString =
-                    getIntent().getStringExtra("imageUri");
-
-            if (uriString != null) {
-
-                Uri imageUri = Uri.parse(uriString);
-
-                Bitmap bitmapFromUri =
-                        MediaStore.Images.Media.getBitmap(
-                                this.getContentResolver(),
-                                imageUri);
-
-                detectarObjetos(bitmapFromUri);
-            }
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            tvConteo.setText("Error al cargar imagen");
+        if (bitmap != null) {
+            detectarObjetos(bitmap);
+        } else {
+            tvConteo.setText("No se recibió imagen");
         }
     }
 
     private void detectarObjetos(Bitmap bitmap) {
 
-        ObjectDetectorOptions options =
-                new ObjectDetectorOptions.Builder()
-                        .setDetectorMode(
-                                ObjectDetectorOptions.SINGLE_IMAGE_MODE)
+        // Cargar modelo TensorFlow Lite
+        LocalModel localModel =
+                new LocalModel.Builder()
+                        .setAssetFilePath("detect.tflite")
+                        .build();
+
+        CustomObjectDetectorOptions options =
+                new CustomObjectDetectorOptions.Builder(localModel)
+                        .setDetectorMode(CustomObjectDetectorOptions.SINGLE_IMAGE_MODE)
                         .enableMultipleObjects()
+                        .enableClassification()
+                        .setClassificationConfidenceThreshold(0.5f)
+                        .setMaxPerObjectLabelCount(1)
                         .build();
 
         ObjectDetector detector =
@@ -104,22 +83,54 @@ public class ResultadoActivity extends AppCompatActivity {
 
                     Canvas canvas = new Canvas(mutable);
 
-                    Paint paint = new Paint();
-                    paint.setColor(Color.GREEN);
-                    paint.setStyle(Paint.Style.STROKE);
-                    paint.setStrokeWidth(0);
+                    Paint boxPaint = new Paint();
+                    boxPaint.setColor(Color.GREEN);
+                    boxPaint.setStyle(Paint.Style.STROKE);
+                    boxPaint.setStrokeWidth(6);
 
-                    int count = 0;
+                    Paint textPaint = new Paint();
+                    textPaint.setColor(Color.WHITE);
+                    textPaint.setTextSize(50);
+                    textPaint.setFakeBoldText(true);
+
+                    String resultado = "";
 
                     for (DetectedObject obj : objects) {
+
                         Rect bounds = obj.getBoundingBox();
-                        canvas.drawRect(bounds, paint);
-                        count++;
+                        canvas.drawRect(bounds, boxPaint);
+
+                        if (!obj.getLabels().isEmpty()) {
+
+                            String label =
+                                    obj.getLabels().get(0).getText();
+
+                            float confidence =
+                                    obj.getLabels().get(0).getConfidence();
+
+                            String texto =
+                                    label + " (" +
+                                            Math.round(confidence * 100) +
+                                            "%)";
+
+                            resultado += texto + "\n";
+
+                            canvas.drawText(
+                                    texto,
+                                    bounds.left,
+                                    bounds.top - 10,
+                                    textPaint);
+                        }
                     }
 
                     imageResultado.setImageBitmap(mutable);
-                    tvConteo.setText(
-                            "Objetos detectados: " + count);
+
+                    if (resultado.isEmpty()) {
+                        tvConteo.setText("No se detectaron objetos");
+                    } else {
+                        tvConteo.setText(resultado);
+                    }
+
                 })
                 .addOnFailureListener(e ->
                         tvConteo.setText("Error al detectar objetos"));

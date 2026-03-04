@@ -17,20 +17,21 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.mlkit.vision.common.InputImage;
-import com.google.mlkit.vision.objects.DetectedObject;
+import com.google.mlkit.common.model.LocalModel;
+import com.google.mlkit.vision.objects.custom.CustomObjectDetectorOptions;
 import com.google.mlkit.vision.objects.ObjectDetection;
 import com.google.mlkit.vision.objects.ObjectDetector;
-import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions;
+import com.google.mlkit.vision.objects.DetectedObject;
+import com.google.mlkit.vision.common.InputImage;
 
 import java.io.IOException;
 
 public class ResultadoGaleriaActivity extends AppCompatActivity {
 
-    private ImageView imageGaleria;
-    private TextView tvResultadoGaleria;
+    ImageView imageGaleria;
+    TextView tvResultadoGaleria;
 
-    private ActivityResultLauncher<Intent> galleryLauncher;
+    ActivityResultLauncher<Intent> galleryLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,16 +41,14 @@ public class ResultadoGaleriaActivity extends AppCompatActivity {
         imageGaleria = findViewById(R.id.imageGaleria);
         tvResultadoGaleria = findViewById(R.id.tvResultadoGaleria);
 
-        // Launcher moderno para galería
         galleryLauncher =
                 registerForActivityResult(
                         new ActivityResultContracts.StartActivityForResult(),
                         result -> {
-                            if (result.getResultCode() == RESULT_OK
-                                    && result.getData() != null) {
 
-                                Uri imageUri =
-                                        result.getData().getData();
+                            if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+
+                                Uri imageUri = result.getData().getData();
 
                                 if (imageUri != null) {
                                     procesarImagen(imageUri);
@@ -57,30 +56,23 @@ public class ResultadoGaleriaActivity extends AppCompatActivity {
                             }
                         });
 
-        // Imagen inicial enviada desde MainActivity
-        String uriString =
-                getIntent().getStringExtra("imageUri");
+        String uriString = getIntent().getStringExtra("imageUri");
 
         if (uriString != null) {
             procesarImagen(Uri.parse(uriString));
         }
 
-        Button btnOtraImagen =
-                findViewById(R.id.btnOtraImagen);
+        Button btnOtraImagen = findViewById(R.id.btnOtraImagen);
+        Button btnVolver = findViewById(R.id.btnVolverInicio);
 
-        Button btnVolver =
-                findViewById(R.id.btnVolverInicio);
-
-        // 🔁 Seleccionar otra imagen
         btnOtraImagen.setOnClickListener(v -> {
-            Intent intent =
-                    new Intent(Intent.ACTION_PICK,
-                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+
+            Intent intent = new Intent(Intent.ACTION_PICK,
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
 
             galleryLauncher.launch(intent);
         });
 
-        // ⬅ Volver
         btnVolver.setOnClickListener(v -> finish());
     }
 
@@ -96,53 +88,76 @@ public class ResultadoGaleriaActivity extends AppCompatActivity {
             detectarObjetos(bitmap);
 
         } catch (IOException e) {
-            e.printStackTrace();
             tvResultadoGaleria.setText("Error al cargar imagen");
         }
     }
 
     private void detectarObjetos(Bitmap bitmap) {
 
-        ObjectDetectorOptions options =
-                new ObjectDetectorOptions.Builder()
-                        .setDetectorMode(
-                                ObjectDetectorOptions.SINGLE_IMAGE_MODE)
-                        .enableMultipleObjects()
+        LocalModel localModel =
+                new LocalModel.Builder()
+                        .setAssetFilePath("detect.tflite")
                         .build();
 
-        ObjectDetector detector =
-                ObjectDetection.getClient(options);
+        CustomObjectDetectorOptions options =
+                new CustomObjectDetectorOptions.Builder(localModel)
+                        .setDetectorMode(CustomObjectDetectorOptions.SINGLE_IMAGE_MODE)
+                        .enableMultipleObjects()
+                        .enableClassification()
+                        .setClassificationConfidenceThreshold(0.5f)
+                        .setMaxPerObjectLabelCount(1)
+                        .build();
 
-        InputImage image =
-                InputImage.fromBitmap(bitmap, 0);
+        ObjectDetector detector = ObjectDetection.getClient(options);
+
+        InputImage image = InputImage.fromBitmap(bitmap, 0);
 
         detector.process(image)
                 .addOnSuccessListener(objects -> {
 
-                    Bitmap mutable =
-                            bitmap.copy(Bitmap.Config.ARGB_8888, true);
-
+                    Bitmap mutable = bitmap.copy(Bitmap.Config.ARGB_8888, true);
                     Canvas canvas = new Canvas(mutable);
 
-                    Paint paint = new Paint();
-                    paint.setColor(Color.GREEN);
-                    paint.setStyle(Paint.Style.STROKE);
-                    paint.setStrokeWidth(0);
+                    Paint boxPaint = new Paint();
+                    boxPaint.setColor(Color.GREEN);
+                    boxPaint.setStyle(Paint.Style.STROKE);
+                    boxPaint.setStrokeWidth(6);
 
-                    int count = 0;
+                    Paint textPaint = new Paint();
+                    textPaint.setColor(Color.WHITE);
+                    textPaint.setTextSize(50);
+                    textPaint.setFakeBoldText(true);
+
+                    String resultado = "";
 
                     for (DetectedObject obj : objects) {
+
                         Rect bounds = obj.getBoundingBox();
-                        canvas.drawRect(bounds, paint);
-                        count++;
+                        canvas.drawRect(bounds, boxPaint);
+
+                        if (!obj.getLabels().isEmpty()) {
+
+                            String label = obj.getLabels().get(0).getText();
+                            float confidence = obj.getLabels().get(0).getConfidence();
+
+                            String texto = label + " (" + Math.round(confidence * 100) + "%)";
+
+                            resultado += texto + "\n";
+
+                            canvas.drawText(texto, bounds.left, bounds.top - 10, textPaint);
+                        }
                     }
 
                     imageGaleria.setImageBitmap(mutable);
-                    tvResultadoGaleria.setText(
-                            "Objetos detectados: " + count);
+
+                    if (resultado.isEmpty()) {
+                        tvResultadoGaleria.setText("No se identificaron objetos");
+                    } else {
+                        tvResultadoGaleria.setText(resultado);
+                    }
+
                 })
                 .addOnFailureListener(e ->
-                        tvResultadoGaleria.setText(
-                                "Error al detectar objetos"));
+                        tvResultadoGaleria.setText("Error al detectar objetos"));
     }
 }

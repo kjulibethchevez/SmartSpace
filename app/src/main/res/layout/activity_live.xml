@@ -1,28 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!-- Vista de la cámara -->
     <androidx.camera.view.PreviewView
         android:id="@+id/previewView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
+        android:layout_height="match_parent" />
 
-    <com.example.smartspace.GraphicOverlay
-        android:id="@+id/graphicOverlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
-
+    <!-- Texto con resultado -->
     <TextView
-        android:id="@+id/tvLiveConteo"
+        android:id="@+id/tvResultadoLive"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Objetos en vivo: 0"
+        android:text="Detectando objetos..."
+        android:textColor="@color/white"
         android:textSize="20sp"
-        android:textColor="#FFFFFF"
+        android:textStyle="bold"
         android:background="#80000000"
         android:padding="10dp"
-        android:layout_margin="20dp"/>
+        android:layout_margin="20dp"
+        android:layout_gravity="top|center_horizontal"/>
+
+    <!-- Botón volver -->
+    <Button
+        android:id="@+id/btnVolverLive"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Volver"
+        android:layout_margin="20dp"
+        android:background="@drawable/rounded_button"
+        android:textColor="@color/white"
+        android:layout_gravity="bottom|center_horizontal"/>
 
 </FrameLayout>
